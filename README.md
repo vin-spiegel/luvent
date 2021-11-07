@@ -1,111 +1,36 @@
 Luvent: A Simple Event Library for Lua
 ======================================
 
-[![Travis-CI-Badge][]][Travis-CI]
+Luvent는 [이벤트 중심 프로그래밍](https://ko.wikipedia.org/wiki/%EC%9D%B4%EB%B2%A4%ED%8A%B8_(%EC%BB%B4%ED%93%A8%ED%8C%85))을 지원하는 Lua용 라이브러리입니다.
 
-Luvent is a library for [Lua][], written entirely in Lua, which helps
-support [event-driven programming][EDP].  Luvent lets you create
-events, which are objects with any number of associated functions.
-Whenever you trigger an event the library will execute all functions
-attached to that event.  You may trigger an event multiple times and
-can provide different arguments to that event’s functions each time.
-
-There are great alternatives to Luvent listed below.  However, most of
-those libraries do not have an explicit license.  I created Luvent to
-use in a commercial game, built on the [LÖVE][] framework, and so I
-could not use any library that did not explicitly grant legal
-permission to use the code in that situation.  Luvent may not be that
-different from existing libraries in terms of its functionality; but
-it is and will always be free for developers to use in any program
-whether it is commercial or not.
-
-
-Requirements
+설치
 ------------
 
-Luvent requires one of the following Lua implementations:
+```lua
+local luvent = require "luvent"
+```
 
-* [Lua][] >= 5.1
-* [LuaJIT][] >= 2.0
-* [LÖVE][] >= 0.8.0
-
-These are the versions we use to test Luvent.  It should work with
-later versions of each, and possibly older versions as well.
-
-### Optional ###
-
-The following programs are not necessary in order to use Luvent but
-you will need them to run the unit tests, generate API documentation,
-and so on.
-
-* [LDoc][] >= 1.4.0
-* [Busted][] >= 1.10.0
-* [GNU Make][] >= 3
-* [Luacheck][] >= 0.10.0
-
-
-Installation
-------------
-
-All you need to do is place `src/Luvent.lua` in a directory that is
-part of `package.path` so that Lua can find and load it.  Since the
-entire library is that one file you can also simply copy
-`src/Luvent.lua` into the directory alongside the rest of your code
-and `require()` it from there.  If you have Busted then you can run
-`make tests` first to ensure that Luvent behaves as intended.
-
-
-Documentation
+Docs
 -------------
 
-Running the command `make docs` will populate the `docs/` directory
-with HTML documents that describe Luvent’s API.
+### 핵심 ###
 
-### Terminology ###
+* **Event:** 이벤트 오브젝트는 `trigger(...)` 함수로 호출합니다
 
-* **Event:** An object which you can `trigger(...)` in order to invoke
-  *all actions* associated with the event.
+* **Action:** 다음 3개 요소 모두 이벤트와 연결할 수 있습니다
 
-* **Action:** Any of the following qualify as actions that you can
-  associate with events:
+  1. 함수.
+  2. 코루틴
+  3. `__call` 메타 메소드가 포함된 테이블
 
-  1. A function.
-  2. A [coroutine][].
-  3. A table that supports the `__call()` [metamethod][].
-
-* **Action ID:** An object that represents an action.  The method
-  `addAction()` will return an action ID that you can save to later
-  use with methods such as `disableAction()`.  Instead of the ID you
-  can also use the action itself, e.g. if the action is a function
-  then any method that asks for an ‘action or ID’ will accept that
-  function itself or the ID that `addAction()` returned when given the
-  function.  Action IDs are always true in a boolean context.  If two
-  IDs are equal then they represent the same action.  Those are the
-  only two properties that the API provides; if you rely on anything
-  else about action IDs (e.g. their type) then your code may suddenly
-  break in the future.
+* **Action ID:** `addAction()`은 나중에 저장할 수 있는 작업 ID를    반환합니다. 'disableAction()'과 같은 메서드와 함께 사용합니다. 아이디 대신 액션 자체를 사용할 수도 있습니다. 액션이 함수라면 '액션 또는 ID' 로 요청할 수 있습니다. 익명 함수가 주어진 경우 ID가 반환 됩니다. ID가 같으면 동일한 작업을 수행합니다.
 
 ### Basic Example ###
 
-You create new events with the `newEvent()` function. Note well that
-you must *never* rely on the properties of the event objects.
-Anything that is not a method is not part of the API and may change at
-any time.
-
-Once you have an event object you can begin to add ‘actions’ to it via
-its `addAction()` method.  To invoke those actions you ‘trigger’ the
-event by calling its `trigger()` method.  Every action associated with
-the event will receive any parameters you give to `trigger()`.
-
-Below is a lengthy example that demonstrates the basics of creating
-and triggering events, and adding and removing actions.
+`newEvent()`로 생성하여 `trigger()`로 액션을 발동시킬수 있습니다. 액션을 발동시킬때 실행될 함수는 `addAction()`으로 추가할 수 있습니다
 
 ```lua
--- In this example you will pretend you are implementing a module in a
--- game that creates and manages enemies.  To simplfy the example you
--- use Enrique García Cota's terrific MiddleClass library in order
--- to make the class and objects for enemies.
---
+--  이 예제에는 middleclass가 필요합니다
 --     https://github.com/kikito/middleclass
 --
 local class = require "middleclass"
@@ -113,7 +38,7 @@ local class = require "middleclass"
 local Luvent = require "Luvent"
 local Enemy = class("Enemy")
 
--- This hash contains a reference to all living enemies.
+-- 모든 살아있는 객체에 대한 래퍼런스가 담깁니다
 Enemy.static.LIVING = {}
 
 function Enemy:initialize(family, maxHP)
@@ -123,11 +48,11 @@ function Enemy:initialize(family, maxHP)
     table.insert(Enemy.LIVING, self)
 end
 
--- This is the event you trigger any time an enemy dies.
+-- 몬스터가 죽을때마다 실행될 트리거
 Enemy.static.onDie = Luvent.newEvent()
 
--- This method applies damage to an enemy and will trigger its 'onDie'
--- event if the enemy's hit points reach zero or less.
+-- 'onDie' 트리거를 판단할 함수 
+-- HP가 0 이 되면 `onDie` 액션 트리거
 function Enemy:damage(damage)
     self.HP = self.HP - damage
     if self.HP <= 0 then
@@ -135,8 +60,8 @@ function Enemy:damage(damage)
     end
 end
 
--- Now you can start associating actions with the 'onDie' event.  First
--- you start by removing the enemy from the table of living enemies.
+
+-- 여기서 `onDie`액션에 발동시킬 함수를 정의합니다
 Enemy.onDie:addAction(
     function (enemy)
         for index,living_enemy in ipairs(Enemy.LIVING) do
@@ -147,104 +72,64 @@ Enemy.onDie:addAction(
         end
     end)
 
--- For debugging you want to see on the console when an enemy dies, so
--- you add that as a separate action.  This time you save the return
--- value of addAction() so that later you can use that to remove the
--- action when you want to stop printing debugging output.
+
+-- `onDie`액션에 같이 출력될 디버깅 함수
 local debugAction = Enemy.onDie:addAction(
     function (enemy)
         print(string.format("Enemy %s died", enemy.family))
     end)
 
--- Now you make some enemies and kill them to demonstrate how the
--- trigger() method used in Enemy:damage() invokes the actions.
 
 local bee = Enemy:new("Bee", 10)
 local ladybug = Enemy:new("Ladybug", 1)
 
--- This will print "2"
-print(#Enemy.LIVING)
+print(#Enemy.LIVING) --> Prints 2
 
--- This kills the enemy so the program invokes the two actions above,
--- meaning it will print "Enemy Ladbug died" to the console and will
--- remove it from Enemy.LIVING.
+
 ladybug:damage(100)
-print(#Enemy.LIVING)    -- Prints "1"
+print(#Enemy.LIVING) --> Prints "1"
 
--- Now you turn off the debugging output by removing that action.  As a
--- result you will see no output after killing the bee.
 Enemy.onDie:removeAction(debugAction)
 bee:damage(50)
+
 print(#Enemy.LIVING)    -- Prints "0"
 ```
 
-**Note:** Luvent discards all return values from action functions or
-anything that coroutines yield.
+**Note:** Luvent discards all return values from action functions or anything that coroutines yield.
 
 ### Getting Information About Actions ###
 
-Luvent provides two methods for gathering information about the
-relationship between an event an actions.
+Luvent는 액션 함수 또는 코루틴이 산출하는 모든 반환 값을 버립니다.
 
-1. The method `getActionCount()` tells you the number of actions
-   associated with an event.  *This is not necessarily the number of
-   actions that `trigger()` will invoke.* The method only tells you
-   the number of unique actions associated with the event via its
-   `addAction()` method.  Luvent allows you to temporarily disable
-   actions and to delay their execution, which means `trigger()` will
-   not call those actions even though they are still associated with
-   the event.  That is why you cannot rely on `getActionCount()` to
-   tell you the exact number of actions an event will run.
+1. `getActionCount()` 메소드는 액션 수를 알려줍니다. *이것은 `trigger()`가 호출하는 작업의 수일 필요는 없습니다.* 이 메서드는 `addAction()` 메서드를 통해 이벤트와 관련된 고유한 작업의 수만 알려줍니다. Luvent를 사용하면 작업을 일시적으로 비활성화하고 실행을 지연할 수 있습니다. 즉, `trigger()`는 해당 작업이 여전히 이벤트와 연결되어 있어도 해당 작업을 호출하지 않습니다. 그렇기 때문에 `getActionCount()`에 의존하여 이벤트가 실행될 정확한 작업 수를 알 수 없습니다.
 
-2. The method `hasAction(action_or_id)` accepts an action or an action
-   ID (i.e. the return value of `addAction()`) and returns a boolean
-   indicating whether or not the action is part of the event.
-   However, if `hasAction()` returns true that is not a guarantee that
-   the event will call that action, for the same reasons that affect
-   `getActionCount()`.
+2. 메소드 `hasAction(action_or_id)`은 작업 또는 작업을 수락합니다.
+   ID(즉, `addAction()`의 반환 값) 및 `boolean` 반환 액션이 이벤트의 일부인지 여부를 나타냅니다. 그러나 `hasAction()`이 `true` 를 반환한다고 해서 다음을 보장하는 것은 아닙니다. 이벤트는 영향을 미치는 동일한 이유로 해당 작업을 호출합니다. `getActionCount()`.
 
 ### Enabling and Disabling Actions ###
 
-In the example above you removed an action.  Calling the
-`getActionCount()` of an event will tell us how many actions it has.
-However, this is not necessarily the number of actions it will invoke
-if you trigger the event.
+* `getActionCount()` 는 이벤트가 얼마나 많은 작업을 수행하는지 알려줍니다.
+그러나 이것이 반드시 호출할 작업의 수는 아닙니다. 이벤트를 트리거하면. 액션을 추가하면 Luvent가 기본적으로 활성화합니다. 
 
-When you add an action Luvent enables it by default.  You can disable
-actions though.  For example:
 
-```lua
-local debugAction = Enemy.onDie:addAction(
-    function (enemy)
-        print(string.format("Enemy %s died", enemy.family))
-    end)
+    ```lua
+    local debugAction = Enemy.onDie:addAction(
+        function (enemy)
+            print(string.format("Enemy %s died", enemy.family))
+        end)
 
--- ...Later in the code...
+    -- ...Later in the code...
 
-Enemy.onDie:disableAction(debugAction)
-```
+    Enemy.onDie:disableAction(debugAction)
+    ```
 
-The difference between this method and `removeAction()` is that this
-method only turns-off the action temporarily.  Later you could call
-`enableAction()` to turn the action back on.  When you use
-`removeAction()`, however, it is like deleting the action from the
-event.
-
-You can also think of the methods in pairs.
-
-1. `removeAction()` is the opposite of `addAction()`.
-
-2. `disableAction()` is the opposite of `enableAction()`.
-
-The first pair of methods affect the return value of
-`getActionCount()` and `hasAction()`.  The second pair does not.
+`disableAction`은 작업을 일시적으로만 비활성화 시킵니다 `enableAction()` 을 이용하여 다시 사용할 수 있습니다.
+`removeAction()` 은 작업을 완전히 지웁니다
 
 ### Action Intervals ###
 
-Events may have actions with *intervals,* i.e. guaranteed delays in
-the amount of time that must pass before the action will run again.
-Luvent allows us to define intervals in terms of seconds.  For
-example:
+이벤트에는 *시간 간격* 이 있는 작업이 있을 수 있습니다. 작업이 다시 실행되기 전에 경과해야 하는 시간입니다. Luvent를 사용하면 간격을 초 단위로 정의할 수 있습니다.
+
 
 ```lua
 -- In this example you have a game where the AI has an 'onThink' event.
@@ -269,17 +154,12 @@ while true do
 end
 ```
 
-Actions have no interval by default.  You can use the method
-`removeActionInterval()` to take away any interval from an action,
-even if that action has no interval in the first place.
+작업에는 기본적으로 간격이 없습니다. `removeActionInterval()`은 작업들 간 시간 간격을 제거합니다.
 
 ### Prioritizing Actions ###
 
-By default Luvent makes no guarantees about the order in which an
-event will execute actions.  But you can create such guarantees by
-assigning numeric priorities to actions.  In that case Luvent will
-invoke actions based on the order of the priority, from highest to
-lowest, for example:
+luvent 의 디폴트 값은 우선순위를 설정하지 않습니다. 하지만 다음과 같이 행동에 숫자 우선 순위를 할당할 수 있습니다. 우선순위가 설정된 경우 Luvent는
+가장 높은 것부터 우선 순위의 순서에 따라 작업을 호출합니다.
 
 ```lua
 -- Let's say you are writing an AI for a board game.  You have an
@@ -309,25 +189,19 @@ AI.onMove:setActionPriority(searchPatternDatabase, 3)
 AI.onMove:setActionPriority(estimateScore, 1)
 ```
 
-After you set the priorities at the end then when you call
-`AI.onMove:trigger()` it will invoke the actions in this order:
+>위와 같은 경우에서 `AI.onMove:trigger()`는 다음 순서로 작업을 호출합니다.
 
 1. `analyzeCurrentPosition()`
 2. `searchPatternDatabase()`
 3. `makeMove()`
 4. `estimateScore()`
 
-You can use `removeActionPriority()` on any of these actions to place
-them back at the bottom of the list, which is Luvent’s default
-behavior.  Any action without an explicit priority will run last.  If
-more than one action has the same priority then there is no guarantee
-about the order in which Luvent will call those actions.
+이러한 작업에 `removeActionPriority()`를 사용하여 배치할 수 있습니다.
+Luvent의 기본값인 목록 맨 아래에 다시 표시합니다. 명시적인 우선 순위가 없는 작업은 마지막으로 실행됩니다. 작업 우선 순위를 같은 숫자로 설정하지 마세요. 
 
 ### Action Limits ###
 
-There are situations where you may want to limit the amount of times
-an event will invoke a specific action.  You can control this by
-setting the ‘limit’ for the action.  For example:
+액션의 횟수를 제한해야 하는 상황이 있습니다. `limit` 를 이용하여 액션의 횟수를 제한할 수 있스빈다
 
 ```lua
 -- In this example you are working with an 'onDeath' event for players
@@ -357,95 +231,72 @@ Game.onDeath:setActionLimit(saveScore, 1)
 Game.onDeath:setActionPriority(saveScore, 10)
 ```
 
-The first call to `Game.onDeath:trigger()` will invoke `saveScore()`
-and then `promptForContinue()`.  All future `trigger()` calls will
-only invoke the second action.  Once an action reaches its limit then
-Luvent effectively calls `removeAction()`, meaning you would have to
-manually re-add the action before the event would use it again.
+`Game.onDeath:trigger()` 에 대한 첫 번째 호출은 `saveScore()`를 호출합니다. 그리고 `promptForContinue()`. 그 이후의 모든 `trigger()` 호출은 두 번째 작업부터 호출합니다. 행동이 한계에 도달하면 Luvent는 `removeAction()`을 로 지워줍니다. 
 
 ### Getters ###
-
-Luvent gives you three getters for obtaining information about
-actions:
 
 1. `getActionTriggerLimit(action_or_id)`
 2. `getActionInterval(action_or_id)`
 3. `getActionPriority(action_or_id)`
 
-This methods complement the setters above and help you gain insight
-into the behavior of an action, e.g. how many times it will be
-triggered before being disabled.
-
 ### Looping Over Actions ###
 
-The API provides two methods for looping through all of the actions
-associated with an event.  The first is `allActions()`.  It returns an
-iterator to use in a `for` loop, e.g.
+* 반복문을 이용하여 루프작업을 할 수도 있습니다
 
-```lua
--- Continuing the previous example, this loop temporarily disables all
--- actions attached to the event.
-for action in Game.onDie:allActions() do
-    Game.onDie:disableAction(action)
-end
-```
+    ```lua
+    -- Continuing the previous example, this loop temporarily disables all
+    -- actions attached to the event.
+    for action in Game.onDie:allActions() do
+        Game.onDie:disableAction(action)
+    end
+    ```
 
-If you only need to call one function or method for each action, as in
-the above example, then you can use `forEachAction()`.  It accepts one
-argument, a function which is called once for each action.  That
-function receives two arguments per invocation:
+>다음과 같이 각 작업에 대해 하나의 함수 또는 메서드만 호출해야 하는 경우  `forEachAction()`을 사용할 수 있습니다. 첫번째 인자는 매겨변수, 두번째 인자는 각 작업에 대해 한 번 호출되는 함수입니다. 
 
 1. The Event object containing the actions.
 
 2. The ID of the current action.
 
-This requirement makes it possible to call a method for each action by
-passing that method to `forEachAction()`.  For example, you can
-rewrite the previous loop like so:
+    >이 요구 사항은 해당 메서드를 `forEachAction()`에 전달하여 각 작업에 대한 메서드를 호출할 수 있도록 합니다. 예를 들어 다음과 같이 이전 루프를 다시 작성할 수 있습니다.
 
-```lua
-Game.onDie:forEachAction(Luvent.disableAction)
-```
+    ```lua
+    Game.onDie:forEachAction(Luvent.disableAction)
+    ```
 
-*It is an error to add or remove actions during iteration.*  You
-cannot call `addAction()`, `removeAction()`, or `removeAllActions()`
-during a loop using `allActions()` or via `forEachAction()`.
+    *반복 중에 액션을 추가하거나 제거하면 오류가 생깁니다.*
+
+    >`allActions()`를 사용하거나 `forEachAction()`을 통해 루프 중에 `addAction()`, `removeAction()` 또는 `removeAllActions()`를 호출할 수 없습니다. 
 
 ### Complete List of the Public API ###
 
-You create events with the function `Luvent.newEvent()`.  The function
-returns an object with the following methods:
+- API 목록
 
-* `trigger(...)`
-* `addAction(action)`
-* `removeAction(action_or_id)`
-* `removeAllActions()`
-* `getActionCount()`
-* `hasAction(action_or_id)`
-* `isActionEnabled(action_or_id)`
-* `enableAction(action_or_id)`
-* `disableAction(action_or_id)`
-* `setActionPriority(action_or_id, integer)`
-* `removeActionPriority(action_or_id)`
-* `setActionTriggerLimit(action_or_id, integer)`
-* `removeActionTriggerLimit(action_or_id)`
-* `setActionInterval(action_or_id, integer)`
-* `removeActionInterval(action_or_id)`
-* `allActions()`
-* `forEachAction(callable)`
-* `getActionTriggerLimit(action_or_id)`
-* `getActionInterval(action_or_id)`
-* `getActionPriority(action_or_id)`
+    * `trigger(...)`
+    * `addAction(action)`
+    * `removeAction(action_or_id)`
+    * `removeAllActions()`
+    * `getActionCount()`
+    * `hasAction(action_or_id)`
+    * `isActionEnabled(action_or_id)`
+    * `enableAction(action_or_id)`
+    * `disableAction(action_or_id)`
+    * `setActionPriority(action_or_id, integer)`
+    * `removeActionPriority(action_or_id)`
+    * `setActionTriggerLimit(action_or_id, integer)`
+    * `removeActionTriggerLimit(action_or_id)`
+    * `setActionInterval(action_or_id, integer)`
+    * `removeActionInterval(action_or_id)`
+    * `allActions()`
+    * `forEachAction(callable)`
+    * `getActionTriggerLimit(action_or_id)`
+    * `getActionInterval(action_or_id)`
+    * `getActionPriority(action_or_id)`
 
 
 Acknowledgments and Alternatives
 --------------------------------
 
-[EventLib][] by Elijah Frederickson is the major inspiration for the
-design and implementation of Luvent.  The Luvent API also owes a debt
-of ideas and names to [Node.js][] by Ryan Dahl et al.  The following
-is a list of alternatives to Luvent for the sake of comparison, as
-some may be better suited for some developers or projects:
+참고 및 비교자료
 
 * [Custom Event Support](https://github.com/benbeltran/custom_event_support.lua) by Ben Beltran
 * [Emitter](https://github.com/friesencr/lua_emitter) by Chris Friesen
