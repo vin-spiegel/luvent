@@ -9,7 +9,6 @@ local Luvent = {}
 Luvent.__index = Luvent
 
 --- Create a new event.
---
 -- This is the constructor for creating events, i.e. objects which
 -- support the Luvent methods.
 --
@@ -40,22 +39,26 @@ end
 -- @return A boolean indicating whether or not the events are equal.
 --
 -- @function Event.__eq
-Luvent.__eq = function (e1, e2)
+Luvent.__eq = function(e1, e2)
     if getmetatable(e1) ~= Luvent or getmetatable(e2) ~= Luvent then
         return false
     end
 
-    if #e1.actions ~= #e2.actions then return false end
+    if #e1.actions ~= #e2.actions then
+        return false
+    end
 
-    for _,a1 in ipairs(e1.actions) do
+    for _, a1 in ipairs(e1.actions) do
         local found = false
-        for _,a2 in ipairs(e2.actions) do
+        for _, a2 in ipairs(e2.actions) do
             if a1 == a2 then
                 found = true
                 break
             end
         end
-        if found == false then return false end
+        if found == false then
+            return false
+        end
     end
 
     return true
@@ -169,9 +172,8 @@ end
 -- @return A boolean indicating if the two actions share the same ID.
 --
 -- @function Action.__eq
-Luvent.Action.__eq = function (a1, a2)
-    if getmetatable(a1) ~= Luvent.Action
-    or getmetatable(a2) ~= Luvent.Action then
+Luvent.Action.__eq = function(a1, a2)
+    if getmetatable(a1) ~= Luvent.Action or getmetatable(a2) ~= Luvent.Action then
         return false
     end
 
@@ -201,7 +203,7 @@ local function findAction(event, actionToFind)
         error("Invalid action parameter: " .. tostring(actionToFind))
     end
 
-    for index,action in ipairs(event.actions) do
+    for index, action in ipairs(event.actions) do
         if action[key] == actionToFind then
             return true, index
         end
@@ -217,10 +219,12 @@ end
 --
 -- @param event The event with the actions we sort.
 local function sortActionsByPriority(event)
-    table.sort(event.actions,
-               function (a1, a2)
-                   return a1.priority > a2.priority
-    end)
+    table.sort(
+        event.actions,
+        function(a1, a2)
+            return a1.priority > a2.priority
+        end
+    )
 end
 
 --- Add an action to an event.
@@ -237,7 +241,9 @@ function Luvent:addAction(actionToAdd)
     assert(isActionCallable(actionToAdd) == true)
 
     -- We do not allow adding an action more than once to an event.
-    if self:hasAction(actionToAdd) then return end
+    if self:hasAction(actionToAdd) then
+        return
+    end
 
     local new = newAction(actionToAdd)
     table.insert(self.actions, new)
@@ -255,7 +261,7 @@ end
 --
 -- @see Luvent:addAction
 function Luvent:removeAction(actionToRemove)
-    local exists,index = findAction(self, actionToRemove)
+    local exists, index = findAction(self, actionToRemove)
     if exists == true then
         table.remove(self.actions, index)
     end
@@ -317,8 +323,7 @@ local function invokeAction(action, ...)
 
     action.numberOfInvocations = action.numberOfInvocations + 1
 
-    if action.limit >= 0
-    and action.numberOfInvocations >= action.limit then
+    if action.limit >= 0 and action.numberOfInvocations >= action.limit then
         action.enabled = false
     end
 
@@ -334,7 +339,7 @@ end
 -- @param ... All arguments given to this method will be passed along
 -- to every action.
 function Luvent:trigger(...)
-    local call = function (action, ...)
+    local call = function(action, ...)
         local keep = invokeAction(action, ...)
         if keep == false then
             self:removeAction(action.id)
@@ -343,7 +348,7 @@ function Luvent:trigger(...)
 
     sortActionsByPriority(self)
 
-    for _,action in ipairs(self.actions) do
+    for _, action in ipairs(self.actions) do
         if action.interval > 0 then
             if os.difftime(os.time(), action.timeOfLastInvocation) >= action.interval then
                 call(action, ...)
@@ -378,10 +383,10 @@ end
 -- @see Luvent:setActionInterval
 -- @see Luvent:enableAction
 local function createActionSetter(property, valueType, default)
-    return function (event, actionToFind, newValue)
+    return function(event, actionToFind, newValue)
         local propertyValue = newValue or default
         local propertyValueType = type(propertyValue)
-        local exists,index = findAction(event, actionToFind)
+        local exists, index = findAction(event, actionToFind)
         assert(exists)
         assert(propertyValueType == valueType)
 
@@ -407,8 +412,8 @@ end
 -- @see Luvent:getActionTriggerLimit
 -- @see Luvent:getActionPriority
 local function createActionGetter(property)
-    return function (event, action)
-        local exists,index = findAction(event, action)
+    return function(event, action)
+        local exists, index = findAction(event, action)
         assert(exists)
         assert(event.actions[index][property])
         return event.actions[index][property]
@@ -524,7 +529,7 @@ Luvent.disableAction = createActionSetter("enabled", "boolean", false)
 -- @return Boolean true if the action is enabled and false if the
 -- action is disabled.
 function Luvent:isActionEnabled(actionToFind)
-    local exists,index = findAction(self, actionToFind)
+    local exists, index = findAction(self, actionToFind)
     assert(exists)
     return self.actions[index].enabled
 end
@@ -543,7 +548,7 @@ end
 -- of times the invoke the action.  If the value is zero then Luvent
 -- will disable the action.
 function Luvent:setActionTriggerLimit(actionToFind, limit)
-    local exists,index = findAction(self, actionToFind)
+    local exists, index = findAction(self, actionToFind)
     assert(exists)
     assert(type(limit) == "number" and limit >= 0)
     self.actions[index].limit = limit
@@ -560,7 +565,7 @@ end
 --
 -- @return The trigger limit as a number.
 function Luvent:getActionTriggerLimit(actionToFind)
-    local exists,index = findAction(self, actionToFind)
+    local exists, index = findAction(self, actionToFind)
     assert(exists)
     assert(self.actions[index].limit)
     return self.actions[index].limit
@@ -575,7 +580,7 @@ end
 --
 -- @see Luvent:setActionTriggerLimit
 function Luvent:removeActionTriggerLimit(actionToFind)
-    local exists,index = findAction(self, actionToFind)
+    local exists, index = findAction(self, actionToFind)
     assert(exists)
     self.actions[index].limit = -1
     self.actions[index].numberOfInvocations = 0
@@ -593,10 +598,12 @@ end
 -- through actions is an error.
 function Luvent:allActions()
     local index = 0
-    return function ()
+    return function()
         index = index + 1
         local action = self.actions[index]
-        if action then return action.id end
+        if action then
+            return action.id
+        end
     end
 end
 

@@ -1,4 +1,4 @@
-Luvent: A Simple Event Library for Lua
+Luvent
 ======================================
 
 Luvent는 [이벤트 중심 프로그래밍](https://ko.wikipedia.org/wiki/%EC%9D%B4%EB%B2%A4%ED%8A%B8_(%EC%BB%B4%ED%93%A8%ED%8C%85))을 지원하는 Lua용 라이브러리입니다.
